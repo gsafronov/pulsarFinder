@@ -1,0 +1,50 @@
+#general switches
+numberOfCPUThreads	1
+useGPU			1
+
+#data-taking parameters
+runConf                 2030+36_scanParam.cff
+
+
+#scan parameters
+DM0		        200
+#real DM=246
+scanStep		2
+nPointsToScan		50
+scanOutputFile          2030+36_scanOut.root
+analysisOutputFile      2030+36_analysis.root
+dataLocation		../gamma/readRAW_2030+36
+nFilesToProcess		27
+
+#analysis parameters
+rebinFactor		1
+fitWindow		200
+
+runs:
+011012_2030+36_00
+011112_2030+36_00
+011212_2030+36_00
+021012_2030+36_00
+021112_2030+36_00
+021212_2030+36_00
+031012_2030+36_00
+031112_2030+36_00
+031212_2030+36_00
+041112_2030+36_00
+041212_2030+36_00
+051112_2030+36_00
+051212_2030+36_00
+061112_2030+36_00
+071112_2030+36_00
+081112_2030+36_00
+091112_2030+36_00
+111012_2030+36_00
+121012_2030+36_00
+131012_2030+36_00
+141012_2030+36_00
+151012_2030+36_00
+200912_2030+36_00
+251012_2030+36_00
+290912_2030+36_00
+291112_2030+36_00
+301112_2030+36_00

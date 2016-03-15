@@ -1,0 +1,26 @@
+#general switches
+numberOfCPUThreads	4
+useGPU			0
+
+#data-taking parameters
+runConf                 1133_scanParam.cff
+
+
+#scan parameters
+DM0		        0
+#real DM=246
+scanStep		1
+nPointsToScan		10
+scanOutputFile          1133+16_scanOut.root
+analysisOutputFile      1133+16_analysis.root
+dataLocation		../readRAW/
+firstFileNumber         1
+nFilesToProcess		2
+
+#analysis parameters
+rebinFactor		1
+fitWindow		200
+
+runs:
+140314_1133+16_00
+150314_1133+16_00

@@ -1,0 +1,11 @@
+nFrequencies	512			//number of bands
+//time is in ms
+tau             1.2288                  //ADC integration time
+period          333.23290309           //pulsar period
+nPeriods	729
+nBinsPerPeriod  269
+//wavelength is in cm
+l511            267.6564006             //shortest wavelength
+dL              0.0119494               //dL between two frequency bands
+
+

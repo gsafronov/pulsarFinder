@@ -1,0 +1,24 @@
+#general switches
+numberOfCPUThreads	100
+useGPU			0
+
+#data-taking parameters
+#runConf  		1237+25_scanParam.cff
+runConf                 0007+73_scanParam.cff
+
+
+#scan parameters
+DM0		        0
+scanStep		2
+nPointsToScan		50
+#scanOutputFile		1237+25_scanOut_141013.root
+scanOutputFile          0007+41_scanOut.root
+analysisOutputFile      0007+41_analysis.root
+dataLocation		../gamma/readRAW_0007+73
+nFilesToProcess		258
+
+#analysis parameters
+rebinFactor		1
+fitWindow		200
+
+runs:
