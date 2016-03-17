@@ -1,6 +1,6 @@
-#include "include/DMScan.h"
-#include "include/DMAnalysis.h"
-#include "include/thread_iface.h"
+#include "DMScan.h"
+#include "DMAnalysis.h"
+#include "thread_iface.h"
 #include "TMath.h"
 #include "Math/DistFunc.h"
 

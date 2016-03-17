@@ -1,4 +1,4 @@
-#include "include/DMScan.h"
+#include "DMScan.h"
 #include <cuda_runtime.h>
 
 //before class definition define CUDA kernel func
