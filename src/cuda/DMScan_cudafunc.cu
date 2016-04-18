@@ -28,41 +28,41 @@ int DMScan::loadDataToGPU()
   cudaError_t err = cudaSuccess;
   
   // Print the vector length to be used, and compute its size
-  size_t size_input=(nBins*nFreq)*sizeof(float);
-  size_t size_output=(nBins)*sizeof(float);	
+  size_t size_input=(fNBins*fNFreq)*sizeof(float);
+  //  size_t size_output=(fNBins)*sizeof(float);	
   
   // Allocate the device input signal vector 
-  err = cudaMalloc((void **)&d_sigArray, size_input);
+  err = cudaMalloc((void **)&fDev_SigArray, size_input);
   
   if (err != cudaSuccess){
     fprintf(stderr, "Failed to allocate the device input signal vector (error code %s)!\n", cudaGetErrorString(err));
     
-    free(sigArray);
+    free(fSigArray);
     
     return 0;
     //exit(EXIT_FAILURE);
   }
   
   // Copy the host input signal vector to the device signal vector in device memory
-  err = cudaMemcpy(d_sigArray, sigArray, size_input, cudaMemcpyHostToDevice);
+  err = cudaMemcpy(fDev_SigArray, fSigArray, size_input, cudaMemcpyHostToDevice);
   
   if (err != cudaSuccess){
     fprintf(stderr, "Failed to copy input signal vector from host to device (error code %s)!\n", cudaGetErrorString(err));
     exit(EXIT_FAILURE);
   }
 
-  free(sigArray);
+  free(fSigArray);
   return 0;
 }
 
 int DMScan::sumFrequencies_GPU(int iStep)
 {
-  float DM=DM0+scanStep*iStep;
+  float DM=fDM0+fScanStep*iStep;
   
   // Error code to check return values for CUDA calls
   cudaError_t err = cudaSuccess;
   
-  size_t size_output=nBins*sizeof(float);
+  size_t size_output=fNBins*sizeof(float);
 
   //host compensated DM
   float* sigSum=(float *)malloc(size_output);
@@ -78,10 +78,10 @@ int DMScan::sumFrequencies_GPU(int iStep)
   
   // Launch the Vector Add CUDA Kernel
   int threadsPerBlock = 32;
-  int blocksPerGrid = floor(nBins/threadsPerBlock)+1;
+  int blocksPerGrid = floor(fNBins/threadsPerBlock)+1;
   //  printf("CUDA kernel launch with %d blocks of %d threads\n", blocksPerGrid, threadsPerBlock);
-  //       std::cout<<"parameters: "<<nFreq<<"  "<<nBins<<"  "<<DM<<"  "<<l511<<"  "<<dL<<"  "<<tau<<"  "<<period<<"   blocksPerGrid "<<blocksPerGrid<<std::endl;
-  sumFreq_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_sigArray, d_sigSum, nFreq, nBins, nBinsPerPeriod, DM, l511, dL, tau, period);
+  std::cout<<"parameters: "<<fNFreq<<"  "<<fNBins<<"  "<<DM<<"  "<<fL511<<"  "<<fDL<<"  "<<fTau<<"  "<<fPeriod<<"   blocksPerGrid "<<blocksPerGrid<<std::endl;
+  sumFreq_kernel<<<blocksPerGrid, threadsPerBlock>>>(fDev_SigArray, d_sigSum, fNFreq, fNBins, fNBinsPerPeriod, DM, fL511, fDL, fTau, fPeriod);
   err = cudaGetLastError();
   
   if (err != cudaSuccess){
@@ -91,7 +91,7 @@ int DMScan::sumFrequencies_GPU(int iStep)
   
   // Copy the device result vector in device memory to the host result vector in host memory.
   //  printf("Copy output data from the CUDA device to the host memory:");
-  //     std::cout<<"address: "<<sigSum<<"  "<<&sigSum[0]<<"  "<<d_sigSum<<"  "<<size_output<<"  "<<cudaMemcpyDeviceToHost<<std::endl;
+  //  std::cout<<"address: "<<sigSum<<"  "<<sigSum[0]<<"  "<<d_sigSum<<"  "<<size_output<<"  "<<cudaMemcpyDeviceToHost<<std::endl;
   err = cudaMemcpy(sigSum, d_sigSum, size_output, cudaMemcpyDeviceToHost);
   
   if (err != cudaSuccess){
@@ -99,24 +99,26 @@ int DMScan::sumFrequencies_GPU(int iStep)
     exit(EXIT_FAILURE);
   }
   
-  for (int i=0; i<nBinsGlobal; i++){
-    if (sigSum[i]==sigSum[i]&&i<nBins) sumFreq[iStep]->SetBinContent(i+1,sigSum[i]);
+  for (int i=0; i<fNBins; i++){
+    if (sigSum[i]==sigSum[i]&&i<fNBins) sumFreq[iStep]->SetBinContent(i+1,sigSum[i]);
     else sumFreq[iStep]->SetBinContent(i+1,512);
   }
   
   //allocate host vector with non-zero elements and image
-  //use common number of bins for all runs (nBinsGlobal)
+  //use common number of bins for all runs (fNBins)
   
-  int signal_memSize=sizeof(float)*nBinsGlobal;
+  // std::cout<<"NBINS: "<<fNBins<<std::endl;
+
+  int signal_memSize=sizeof(float)*fNBins;
   float* h_sigSum_NZ = (float*)malloc(signal_memSize);
   //fill the vector
-  for (int i=0; i<nBinsGlobal; i++){
-    if (sigSum[i]!=0&&sigSum[i]==sigSum[i]&&i<nBins) h_sigSum_NZ[i]=sigSum[i];
+  for (int i=0; i<fNBins; i++){
+    if (sigSum[i]!=0&&sigSum[i]==sigSum[i]&&i<fNBins) h_sigSum_NZ[i]=sigSum[i];
     else h_sigSum_NZ[i]=512;
   }
   
   //allocate device vector with non-zero elements:
-  int image_memSize = sizeof(float2) * (floor(nBinsGlobal/2)+1);
+  int image_memSize = sizeof(float2) * (floor(fNBins/2)+1);
   float* d_sigSum_NZ;
   err=cudaMalloc((void **)&d_sigSum_NZ, image_memSize);
   if (err!=cudaSuccess){			
@@ -148,7 +150,7 @@ int DMScan::sumFrequencies_GPU(int iStep)
   
   // create CUFFT plan
   cufftHandle plan;
-  if (cufftPlan1d(&plan, nBinsGlobal, CUFFT_R2C, 1)!=CUFFT_SUCCESS){
+  if (cufftPlan1d(&plan, fNBins, CUFFT_R2C, 1)!=CUFFT_SUCCESS){
     std::cout<<"FFT plan creation failed"<<std::endl;
     return 1;
   }
@@ -164,7 +166,7 @@ int DMScan::sumFrequencies_GPU(int iStep)
   
   //copy the output to the host
   
-  //  int image_memSize = sizeof(float2) * nBins;
+  //  int image_memSize = sizeof(float2) * fNBins;
   err= cudaMemcpy(h_fImage, d_fImage, image_memSize, cudaMemcpyDeviceToHost);	
   
   if (err!=cudaSuccess){
@@ -173,16 +175,16 @@ int DMScan::sumFrequencies_GPU(int iStep)
   }   
   
   //fill the histogram
-  for (int i=0; i<nBinsGlobal; i++){
+  for (int i=0; i<fNBins; i++){
     float amplitude;
-    if (i<floor(nBinsGlobal/2)+1)	{  
+    if (i<floor(fNBins/2)+1)	{  
       amplitude=sqrt(pow(h_fImage[i].x,2)+pow(h_fImage[i].y,2));
       if (amplitude==amplitude) sumFreq_fImage[iStep]->SetBinContent(i+1,amplitude);
       else std::cout<<"DMScan::sumFrequencies_GPU: nan in FFT bin "<<i<<", iStep: "<<iStep<<std::endl; 
 	     //sumFreq_fImage[iStep]->SetBinContent(i+1,amplitude);
     }  
     else{
-      int ind=nBinsGlobal-i;
+      int ind=fNBins-i;
       amplitude=sqrt(pow(h_fImage[ind].x,2)+pow(h_fImage[ind].y,2));
       if (amplitude==amplitude) sumFreq_fImage[iStep]->SetBinContent(i+1,amplitude);
       else std::cout<<"DMScan::sumFrequencies_GPU: nan in FFT bin "<<i<<", iStep: "<<iStep<<std::endl;
@@ -207,7 +209,7 @@ int DMScan::closeGPU()
   cudaError_t err = cudaSuccess;
   
   // Free device global memory
-  err = cudaFree(d_sigArray);
+  err = cudaFree(fDev_SigArray);
   
   if (err != cudaSuccess){
     fprintf(stderr, "Failed to free device input signal vector (error code %s)!\n", cudaGetErrorString(err));
@@ -223,65 +225,5 @@ int DMScan::closeGPU()
 
   return 0;
   //STEP 12
-}
-
-int DMScan::initScan(std::string rootfile)
-{
-  inputFile=new TFile(rootfile.c_str());
-
-  if (inputFile->IsZombie()) {
-    std::cout<<"DMScan::initScan root file "<<rootfile.c_str()<<" not found"<<std::endl;
-    return 1;
-  }
-  
-  char tmp[100];
-  for (int y=0; y<512; y++){
-    sprintf(tmp,"sigTimeProfile_freqID_%d",y);
-    sigTimeProfile.push_back((TH1F*)inputFile->Get(tmp));
-    //sigTimeProfile[y]=(TH1F*)inputFile->Get(tmp);
-    means.push_back(0);
-    nBins=sigTimeProfile[y]->GetNbinsX();
-    
-    for (int i=0; i<nBins; i++){
-      means[y]+=sigTimeProfile[y]->GetBinContent(i);
-    }
-    means[y]=means[y]/nBins;
-    //      std::cout<<"means:   "<<means[y]<<std::endl;
-    if (means[y]!=0) sigTimeProfile[y]->Scale(pow(means[y],-1));
-  }
-  
-  nPeriods=nBins/nBinsPerPeriod;
-  
-  for (int i=0; i<nPointsToScan; i++){
-    sprintf(tmp,"sumFreq_%d",i);
-    sumFreq.push_back(new TH1F(tmp,tmp,nBinsGlobal,0,nBinsGlobal));
-  }
-  
-  for (int i=0; i<nPointsToScan; i++){
-    sprintf(tmp,"sumFreq_fImage_%d",i);
-    sumFreq_fImage.push_back(new TH1F(tmp,tmp,nBinsGlobal,0,nBinsGlobal));
-  }
-  
-  //read file contents into the memory:
-  size_t size_input=(nBins*512)*sizeof(float);
-  sigArray=(float*)malloc(size_input);
-  for (int i = 0; i < 512; ++i){
-    for (int j=0; j < nBins; ++j){
-	  sigArray[i*nBins+j] = sigTimeProfile[i]->GetBinContent(j+1);
-	}
-    }
-  
-  //Device input vector:
-  d_sigArray = NULL;
-  
-  // Error code to check return values for CUDA calls
-  cudaError_t err = cudaSuccess;
-
-  if (err != cudaSuccess){
-    fprintf(stderr, "Failed to allocate pinned host memory (error code %s)!\n", cudaGetErrorString(err));
-    exit(EXIT_FAILURE);
-  } 
-  
-  return 0;
 }
 

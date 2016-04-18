@@ -26,31 +26,29 @@ class DMScan
   //  int initialize();
   DMScan(std::string outputFileName, int nThreads, int nPointsToScan, float DM0, float step);
   ~DMScan();
-  int readInfo(std::string txtfile);
+
   int initScan(std::string rootfile);
   int write(TFile* outFile, int iStep, std::string dir);
+
   int reset();
-  //  int getInput(std::string rootfile);
 
   int rejectSpikes(float sigmaCut);
 
-  float getTau() {return tau;}
+  float getTau() {return fTau;}
 
-  float getDM(int iStep) {return DM0+scanStep*iStep;}
+  float getDM(int iStep) {return fDM0+fScanStep*iStep;}
 
-  int getNPer() {return nPeriodsGlobal;}
-  int getBPP() {return nBinsPerPeriod;}
+  int getNPer() {return fNPeriods;}
+  int getBPP() {return fNBinsPerPeriod;}
  
-  float getScanStart() {return DM0;}
-  float getScanEnd() {return DM0+scanStep*(nPointsToScan);}
+  float getScanStart() {return fDM0;}
+  float getScanEnd() {return fDM0+fScanStep*(fNPointsToScan);}
 
   int loadDataToGPU();
   int closeGPU();
   
   int sumFrequencies_CPU(int iThread, int iStep);
   int sumFrequencies_GPU(int iStep);
-
-  int nPointsToScan;
 
   std::vector<TH1F*> sumFreq;
   std::vector<TH1F*> sumFreq_fImage;
@@ -64,33 +62,38 @@ class DMScan
   
  private:
 
-  int nFreq;
-  int nThreads;
-  int nPeriods;
-  int nPeriodsGlobal;
-  int nBins;
-  int nBinsGlobal;
-  int nBinsPerPeriod;
-  int rebinFactor;
-  int year;
-  int month;
-  int day;
-  int hour;
-  int minute;
-  int second;
-  float fsec;
+  int fNFreq;
+  int fNThreads;
+  int fNPeriods;
+  int fNBins;
+  int fNBinsPerPeriod;
+  int fRebinFactor;
+  int fYear;
+  int fMonth;
+  int fDay;
+  int fHour;
+  int fMinute;
+ 
+  double fFreq0;
+  double fFreq511;
+  double fL511;
+  double fL0;
+  double fDL;
 
-  std::vector<float> means;
+  double fSecond;
 
-  float l511;
-  float period;
-  float DM0;
-  float dL;
-  float tau;
-  float scanStep;
-  TFile* inputFile;
-  float* sigArray;
-  float* d_sigArray;
+  std::vector<float> fMeans;
+
+  double fPeriod;
+  double fTau;
+  
+  int fNPointsToScan;
+  float fScanStep;
+  float fDM0;
+  
+  TFile* fInputFile;
+  float* fSigArray;
+  float* fDev_SigArray;
   //  float* sigSum;
 
   //  TFile* outputFile;

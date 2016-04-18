@@ -107,6 +107,8 @@ int main(int argc, char *argv[])
   std::vector<std::string> runID;
 
   std::string ff=scanConf;
+  
+  if (useGPU==1) nThreads=1;
   DMScan dmscan(ff, nThreads, nPointsToScan, DM0, scanStep);
 
   std::cout<<"number of threads:  "<<nThreads<<std::endl; 
@@ -148,17 +150,17 @@ int main(int argc, char *argv[])
 
       //      dmscan.rejectSpikes(sigmaCut);
 
-      dmscan.loadDataToGPU();
+      if (useGPU==1) dmscan.loadDataToGPU();
       std::cout<<"start scan, timer: "<<stwch.CpuTime()<<"   "<<stwch.RealTime()<<std::endl;
       stwch.Continue();
       
       //      float prevTime=stwtch.RealTime();
       //      stwtch.Continue();
-      for (int k=0; k<dmscan.nPointsToScan; k++)
+      for (int k=0; k<nPointsToScan; k++)
 	{								
 	  float prevTime=stwch.RealTime();
 	  stwch.Continue();
-	  if (k%10==0||k==dmscan.nPointsToScan-1) std::cout<<"point #"<<k<<"    timer: "<<stwch.CpuTime()<<"   "<<stwch.RealTime()<<std::endl;
+	  if (k%10==0||k==nPointsToScan-1) std::cout<<"point #"<<k<<"    timer: "<<stwch.CpuTime()<<"   "<<stwch.RealTime()<<std::endl;
 	  stwch.Continue();
 	  void *status;
 	  struct sumFreqID thrData[nThreads];
@@ -170,30 +172,21 @@ int main(int argc, char *argv[])
 	      thrData[iTh].dmscan=&dmscan;
 	      
 	      int rc;
-	      if (useGPU==0) 
-		{
-		  //std::cout<<"create thread "<<iTh<<std::endl;
-		  rc = pthread_create(&threads[iTh], NULL, sumFreq_CPU_interface, (void *)&thrData[iTh]);
-		}
-	      else  
-		{
-		  //std::cout<<"create thread "<<iTh<<std::endl;
-		  rc = pthread_create(&threads[iTh], NULL, sumFreq_GPU_interface, (void *)&thrData[iTh]);
-		}
-	      if (rc)
-		{
-		  std::cout << "Error:unable to create thread," << rc << std::endl;
-		  exit(-1);
-		}
+	      if (useGPU==0) rc = pthread_create(&threads[iTh], NULL, sumFreq_CPU_interface, (void *)&thrData[iTh]);
+	      else rc = pthread_create(&threads[iTh], NULL, sumFreq_GPU_interface, (void *)&thrData[iTh]);
+	      
+	      if (rc){
+		
+		std::cout << "Error:unable to create thread," << rc << std::endl;
+		exit(-1);
+	      }
 	    }
-	  for ( int ii=0; ii < nThreads; ii++ )
-	    {	    
-	      int rc = pthread_join(threads[ii], &status);
-	      if (rc)
-		{
-		  std::cout << "Error:unable to join," << rc << std::endl;
-		  exit(-1);
-		}
+	  for ( int ii=0; ii < nThreads; ii++ ){	    
+	    int rc = pthread_join(threads[ii], &status);
+	    if (rc){
+	      std::cout << "Error:unable to join," << rc << std::endl;
+	      exit(-1);
+	    }
 	      //	      std::cout << "Main: completed thread id :" << ii ;
 	      //std::cout << "  exiting with status :" << status << std::endl;
 	    }

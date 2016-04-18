@@ -120,8 +120,8 @@ int main(int argc, char *argv[])
 
   TFile* outf=new TFile(analysisOutputFname.c_str(),"RECREATE");
 
-  TH1F* sigVSdm=new TH1F("sigVSdm","sigVSdm",dmscan.nPointsToScan,dmscan.getScanStart(),dmscan.getScanEnd());
-  TH1F* minPosVSdm=new TH1F("minPosVSdm","minPosVSdm",dmscan.nPointsToScan,dmscan.getScanStart(),dmscan.getScanEnd()); 
+  TH1F* sigVSdm=new TH1F("sigVSdm","sigVSdm",nPointsToScan,dmscan.getScanStart(),dmscan.getScanEnd());
+  TH1F* minPosVSdm=new TH1F("minPosVSdm","minPosVSdm",nPointsToScan,dmscan.getScanStart(),dmscan.getScanEnd()); 
 
   TH1F* hFFTPeriod_SNRvsDM=new TH1F("hFFTPeriod_SNRvsDM","hFFTPeriod_SNRvsDM",nPointsToScan, DM0, DM0+nPointsToScan*scanStep);
   
