@@ -7,11 +7,11 @@ INSTRUCTIONS:
 2). Install root v6.06 (https://root.cern.ch/downloading-root).
 Before the compilation root should be configured to use fftw libs:
 
->./configure --prefix=<...> --with-fftw3-incdir=<path to fftw headers> --with-fftw3-libdir=<path to fftw libs>
+>./configure --prefix=<...> --with-fftw3-incdir="path to fftw headers" --with-fftw3-libdir="path to fftw libs"
 
 3). Add root environment to your shell startup script (example for ~/.bashrc):
 
->export ROOTSYS=<full path to your root installation directory>
+>export ROOTSYS="full path to your root installation directory"
 
 >export PATH=${PATH}:${ROOTSYS}/bin
 
@@ -21,7 +21,7 @@ Before the compilation root should be configured to use fftw libs:
 
 5). Set the CUDAHOME variable in your shell startup script (example for ~/.bashrc):
 
->export CUDAHOME=<full path to your cuda installation dir>
+>export CUDAHOME="full path to your cuda installation dir"
 
 6). Install the latest version of git (https://git-scm.com/downloads).
 
