@@ -2,26 +2,31 @@ PulsarFinder: program for PRAO LPI BSA data processing
 
 INSTRUCTIONS:
 
-Install fftw 3.3.4 (http://www.fftw.org/download.html).
+1). Install fftw 3.3.4 (http://www.fftw.org/download.html).
 
-Install root v6.06 (https://root.cern.ch/downloading-root).
+2). Install root v6.06 (https://root.cern.ch/downloading-root).
 Before the compilation root should be configured to use fftw libs:
+
 >./configure --prefix=<...> --with-fftw3-incdir=<path to fftw headers> --with-fftw3-libdir=<path to fftw libs>
 
-Add root environment to your shell startup script (example for ~/.bashrc):
+3). Add root environment to your shell startup script (example for ~/.bashrc):
 
 >export ROOTSYS=<full path to your root installation directory>
+
 >export PATH=${PATH}:${ROOTSYS}/bin
+
 >export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${ROOTSYS}/lib/root
 
-Install CUDA v7.5 (https://developer.nvidia.com/cuda-downloads).
+4). Install CUDA v7.5 (https://developer.nvidia.com/cuda-downloads).
 
-Set the CUDAHOME variable in your shell startup script (example for ~/.bashrc):
+5). Set the CUDAHOME variable in your shell startup script (example for ~/.bashrc):
+
 >export CUDAHOME=<full path to your cuda installation dir>
 
-Install the latest version of git (https://git-scm.com/downloads).
+6). Install the latest version of git (https://git-scm.com/downloads).
 
-Download the PulsarFinder program:
+7). Download and install the PulsarFinder program:
+
 >git clone https://github.com/gsafronov/pulsarFinder.git
 
 >cd pulsarFinder
@@ -32,8 +37,10 @@ Download the PulsarFinder program:
 
 >make install
 
-Add PF installation directory to your PATH (bash example):
+8). Add PF installation directory to your PATH (bash example):
+
 export PATH=${PATH}:"path used during configure step"/bin
+
 
 
 Examples of program configure files are in the ./examples directory.
