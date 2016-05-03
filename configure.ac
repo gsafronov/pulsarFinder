@@ -4,7 +4,7 @@
 AC_PREREQ([2.69])
 AC_INIT([pulsarFinder], [1.1.1])
 AM_INIT_AUTOMAKE([foreign])
-AC_CONFIG_SRCDIR([src/DMScan_cppfunc.cc])
+AC_CONFIG_SRCDIR([src/PFScan_ProcessCPU.cc])
 #AC_CONFIG_HEADERS([header.h])
 
 #check if ROOTSYS is set:
