@@ -11,7 +11,6 @@ __global__ void sumFreq_kernel(float *sigArray,
 			       float *sigSum, 
 			       int nFreq, 
 			       int nBinsInput, 
-			       int nBinsPerPeriod, 
 			       float DM, 
 			       float l511, 
 			       float dL, 
@@ -39,6 +38,12 @@ __global__ void sumFreq_kernel(float *sigArray,
 
 int PFScan::DoScan_GPU(int nThreadsPerBlock)
 {
+  //rebin here
+  if (!fIsRebin) {
+    Rebin(fRebinFactor);
+    fIsRebin=true;
+  }
+  //  std::cout<<"inside DoScan_GPU"<<std::endl;
   // Error code to check return values for CUDA calls
   cudaError_t err = cudaSuccess;
   
@@ -82,6 +87,7 @@ int PFScan::DoScan_GPU(int nThreadsPerBlock)
 
 int PFScan::DoCompensation_GPU(int iStep, int nThreadsPerBlock)
 {
+  //  std::cout<<"inside DoCompensation_GPU"<<std::endl;
   TStopwatch stwch;
   float DM=fDM0+fScanStep*iStep;
   
@@ -108,14 +114,13 @@ int PFScan::DoCompensation_GPU(int iStep, int nThreadsPerBlock)
   //  std::cout<<"parameters: "<<fNFreq<<"  "<<fNBins<<"  "<<DM<<"  "<<fL511<<"  "<<fDL<<"  "<<fTau<<"  "<<fPeriod<<"   blocksPerGrid "<<nBlocksPerGrid<<std::endl;
   sumFreq_kernel<<<nBlocksPerGrid, nThreadsPerBlock>>>
     (fDev_SigArray, d_sigSum, fNFreq, fNBinsInput, 
-     fNBinsPerPeriod, DM, fL511, fDL, fTau, fPeriod);
+     DM, fL511, fDL, fTau, fPeriod);
   err = cudaGetLastError();
   
   if (err != cudaSuccess){
     fprintf(stderr, "Failed to launch sumFreq kernel (error code %s)!\n", cudaGetErrorString(err));
     exit(EXIT_FAILURE);
   }
-  
   // Copy the device result vector in device memory to the host result vector in host memory.
   //  printf("Copy output data from the CUDA device to the host memory:");
   //  std::cout<<"address: "<<sigSum<<"  "<<sigSum[0]<<"  "<<d_sigSum<<"  "<<size_output<<"  "<<cudaMemcpyDeviceToHost<<std::endl;

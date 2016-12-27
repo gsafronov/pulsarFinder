@@ -18,9 +18,10 @@ class PFRun
   int ReadRunHeader(std::string rootfile);
   int ReadRAWSignal();
   int CloseRun();
-  
+
  protected:
   
+  int RecalculateNumbers(int rebinFactor);
   //  int SetReadRAWOutFile();
   //  int SetScanOutFile();
   //  int SetAnalysisOutFile();
@@ -46,7 +47,7 @@ class PFRun
   int fNPeriodsInput;
   int fNBins;
   int fNBinsInput;
-  int fNBinsPerPeriod;
+  float fNBinsPerPeriod;
   int fYear;
   int fMonth;
   int fDay;

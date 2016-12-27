@@ -29,7 +29,8 @@ int PFScan::CleanSignal(float sigmaCut,
 
   fCleanSignal=true;
   
-  TH1F sumSigRef("sumSigRef","sumSigRef",fNBinsInput,0,fNBinsInput);
+  TH1F sumSigRef("sumSigRef","sumSigRef",fHPerBandSignal[0]->GetNbinsX(),0,fHPerBandSignal[0]->GetXaxis()->GetXmax());
+
   TH1F backgRef("backgRef","backgRef",5010,-10,5000);
   TH1F backgPerPeriod("backgPerPeriod","backgPerPeriod",1000,0,1000);
 
@@ -53,8 +54,8 @@ int PFScan::CleanSignal(float sigmaCut,
   TH1F backgAvg("backgAvg","backgAvg",1000,0,1000);
   
   for (int i=0; i<fNPeriodsInput; i++){
-    for (int j=0; j<fNBinsPerPeriod; j++){
-      backgPerPeriod.Fill(sumSigRef.GetBinContent(i*fNBinsPerPeriod+j),1);
+    for (int j=0; j<floor(fNBinsPerPeriod); j++){
+      backgPerPeriod.Fill(sumSigRef.GetBinContent(floor(i*fNBinsPerPeriod)+j),1);
     }
     backgAvg.Fill(backgPerPeriod.GetMean(),1);
     //      std::cout<<"period: "<<i<<"   bin: "<<i*fNBinsPerPeriod<<"    average: "<<backgPerPeriod.GetMean()<<std::endl;
@@ -83,7 +84,7 @@ int PFScan::CleanSignal(float sigmaCut,
       }
     }
   }
-
+  //  std::cout<<"finish"<<std::endl;
   return 0;
 }
 
@@ -98,7 +99,7 @@ int PFScan::DoCompensation_CPU(int iThread,
   int endPeriod=(iThread+1)*floor((fNPeriods+10)/(fNThreads));
   if (iThread==fNThreads-1) endPeriod=fNPeriods;
   //  std::cout<<fTau<<"  "<<fPeriod<<" "<<fNPeriods<<" "<<fNThreads<<"   start: "<<startPeriod<<"  "<<endPeriod<<std::endl;
-  for (int i=startPeriod*fNBinsPerPeriod+1; i<endPeriod*fNBinsPerPeriod+1; i++){
+  for (int i=floor(startPeriod*fNBinsPerPeriod)+1; i<floor(endPeriod*fNBinsPerPeriod)+1; i++){
       //(i<=fNBinsPerPeriod)||i>fNBins-fNBinsPerPeriod) continue;
 
   //for (int i=1; i<fNBins+1; i++){
@@ -135,6 +136,12 @@ int PFScan::DoScan_CPU(int nThreads)
 {
   std::cout<<"PFScan::DoScan_CPU"<<std::endl;
   fNThreads=nThreads;
+
+  //do rebin here
+  if (!fIsRebin) {
+    Rebin(fRebinFactor);
+    fIsRebin=true;
+  }
   
   void *status;
   pthread_t threads[fNThreads];
@@ -167,7 +174,7 @@ int PFScan::DoScan_CPU(int nThreads)
     }
 
     for (int k=0; k<fNBins; k++) {
-      fHCompSig[i]->Fill(k,fCompSigArray[k]);
+      fHCompSig[i]->SetBinContent(k+1,fCompSigArray[k]);
       fHCompSig[i]->SetBinError(k+1,0);
     }
 

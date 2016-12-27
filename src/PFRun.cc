@@ -30,6 +30,9 @@ PFRun::PFRun()
   fSecond=1.0;
 
   fReadRAWFile=NULL;
+
+  //  std::cout<<"run PFRun constructor"<<std::endl;
+  
 }
 
 PFRun::~PFRun() 
@@ -51,8 +54,9 @@ int PFRun::ReadRunHeader(std::string rootfile)
     return 1;
   }
 
+  int nBinsPerPeriodRead;
   RunHeader->SetBranchAddress("fNPeriods",&fNPeriodsInput);
-  RunHeader->SetBranchAddress("fNBinsPerPeriod",&fNBinsPerPeriod);
+  RunHeader->SetBranchAddress("fNBinsPerPeriod",&nBinsPerPeriodRead);
 
   RunHeader->SetBranchAddress("fTau",&fTau);
   RunHeader->SetBranchAddress("fPeriod",&fPeriod);
@@ -74,12 +78,19 @@ int PFRun::ReadRunHeader(std::string rootfile)
   fL511=3e10*pow(fFreq511*1e6,-1);
   fL0=3e10*pow(fFreq0*1e6,-1);
   fDL=(fL0-fL511)*pow((fNFreq-1),-1);
-  
+
+  fNBinsPerPeriod=nBinsPerPeriodRead;
   fNBinsInput=fNPeriodsInput*fNBinsPerPeriod;
+  //  std::cout<<fNBinsInput<<"    "<<fNBinsPerPeriod<<"  "<<fNPeriods<<std::endl;
+
+  //  fNBinsInput=floor((float)(fNPeriodsInput*fNBinsPerPeriod)/(float)rebinFactor);
+  //  fNBinsPerPeriod=(float)fNBinsInput/(float)fNPeriodsInput;
+
+  //  std::cout<<"AFTER REBIN   N bins input: "<<fNBinsInput<<"    N bins per period: "<<fNBinsPerPeriod<<"  N periods: "<<fNPeriodsInput<<std::endl;
   
   fNPeriods=fNPeriodsInput-3;
-  fNBins=fNPeriods*fNBinsPerPeriod;
-
+  fNBins=floor(fNPeriods*fNBinsPerPeriod);
+  
   return 0;
 }
 
@@ -91,16 +102,24 @@ int PFRun::ReadRAWSignal()
     return 1;
   }
 
-  // std::cout<<"assasa"<<std::endl;
-
-  std::vector<float> fMeans;
   char tmp[100];
+  for (int i=0; i<fNFreq; i++){
+    sprintf(tmp,"sigTimeProfileInput_freqID_%d",i);
+    TH1F*  fHPerBand=new TH1F(tmp,tmp,1,0,1);
+    fHPerBandSignal.push_back(fHPerBand);
+  }
+  
+  std::vector<float> fMeans;
   for (int y=0; y<fNFreq; y++){
     sprintf(tmp,"sigTimeProfile_freqID_%d",y);
-    fHPerBandSignal.push_back((TH1F*)fReadRAWFile->Get(tmp));
+    //get hist first
+    fHPerBandSignal[y]=(TH1F*)fReadRAWFile->Get(tmp);
+    //    fHPerBandSignal.push_back((TH1F*)fReadRAWFile->Get(tmp));
+    //rebin, remove some bins first
+    
     fMeans.push_back(0);
     
-    // std::cout<<y<<std::endl;
+    //   std::cout<<"yo:  "<<fHPerBandSignal[y]->GetNbinsX()<<std::endl;
 
     for (int i=0; i<fNBinsInput; i++){
       fMeans[y]+=fHPerBandSignal[y]->GetBinContent(i);
@@ -108,14 +127,26 @@ int PFRun::ReadRAWSignal()
     fMeans[y]=fMeans[y]/fNBins;
     if (fMeans[y]!=0) fHPerBandSignal[y]->Scale(pow(fMeans[y],-1));
   }
-
   return 0;
 }
 
 
 int PFRun::CloseRun()
 {
+  //  for (int i=0; i<fNFreq; i++) fHPerBandSignal[i]->Delete();
   fHPerBandSignal.clear();
   if (fReadRAWFile->IsOpen()) fReadRAWFile->Close();
   return 0;
+}
+
+int PFRun::RecalculateNumbers(int rebinFactor)
+{
+  fNBinsInput=floor((float)(fNPeriodsInput*fNBinsPerPeriod)/(float)rebinFactor);
+  fNBinsPerPeriod=(float)fNBinsInput/(float)fNPeriodsInput;
+  
+  fNPeriods=fNPeriodsInput-3;
+  fNBins=floor(fNPeriods*fNBinsPerPeriod);
+  
+  fTau=fTau*rebinFactor;
+  return 1;
 }

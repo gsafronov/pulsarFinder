@@ -39,6 +39,7 @@ PFAnalysis::PFAnalysis(std::string anOutputFname,
   fDM0=scan->GetDM0();
   fDoFFT=doFFT;
   fNumberOfRuns=0;
+  fRebinFactor=scan->GetRebinFactor();
 
   TH1::SetDefaultSumw2(kFALSE);
   for (int i=0; i<fNScanPoints; i++){
@@ -99,12 +100,15 @@ int PFAnalysis::SumRuns()
 
   for (int i=0; i<fVHMaxSNRPerRun.size(); i++){
     for (int j=0; j<fNScanPoints; j++){
-      //      std::cout<<"run: "<<fRunID[i]<<"    DM: "<<fScan->GetDM(j)<<"    "
-      //	       <<fVHMaxSNRPerRun[i].GetBinContent(j+1)<<std::endl;
+      //     std::cout<<"run: "<<fRunID[i]<<"    DM: "<<fScan->GetDM(j)<<"    "
+      //  	       <<fVHMaxSNRPerRun[i].GetBinContent(j+1)<<std::endl;
       hMaxSNRperRun.Fill(fScan->GetDM(j),i,fVHMaxSNRPerRun[i].GetBinContent(j+1));
     }
   }
 
+  //  std::cout<<"popopo"<<std::endl;
+
+  
   fVHMaxSNRPerRun.clear();
   
   //normalize folded periods
@@ -127,6 +131,8 @@ int PFAnalysis::SumRuns()
   TH1F hMaxFFTSNRTotal("hMaxFFTSNRTotal",
 		       "Maximum sum FFT SNR vs DM",
 		       fNScanPoints,fDM0,fScan->GetDM(fNScanPoints));
+
+  //  std::cout<<"momomo"<<std::endl;
   
   TH2F hMaxFFTSNRperRun("hMaxFFTSNRperRun",
 			"Maximum FFT SNR per run vs DM",
@@ -152,7 +158,7 @@ int PFAnalysis::SumRuns()
       hMaxSNRperRun.GetYaxis()->SetBinLabel(k+1,labels[k].c_str());
       if (fDoFFT) hMaxFFTSNRperRun.GetYaxis()->SetBinLabel(k+1,labels[k].c_str());
     }
-
+    //    std::cout<<"zozozo"<<std::endl;
     hMaxSNRperRun.SetStats(kFALSE);
     hMaxSNRperRun.SetDrawOption("COLZ");
     hMaxSNRperRun.Write();
@@ -172,7 +178,7 @@ int PFAnalysis::SumRuns()
       fVHFoldedPeriod[j].GetSumw2()->Set(0);
       fVHFoldedPeriod[j].Write();
     }
-
+    //std::cout<<"youououiuiu"<<std::endl;
     if (fDoFFT){
       fOutputFile->mkdir("FFT");
       fOutputFile->cd("FFT");
@@ -187,7 +193,7 @@ int PFAnalysis::SumRuns()
     else 
     fOutputFile->Close();
   }
-
+  //  std::cout<<"yououou"<<std::endl;
   return 0;
 }
 
@@ -204,7 +210,11 @@ int PFAnalysis::AddRun(std::string runID,
   fNumberOfRuns++;
 
   ReadRunHeader(fnameRAW);
+  
+  RecalculateNumbers(fRebinFactor);
 
+  // std::cout<<fNBinsPerPeriod<<" "<<fNPeriods<<std::endl;
+  
   //max SNR per period histogram
   std::string hname="fHMaxSNRperPeriod_"+runID;
   std::string htitle="Maximum SNR per period for run "+runID;
@@ -216,7 +226,7 @@ int PFAnalysis::AddRun(std::string runID,
 
   if (fRunID.size()==1){
     for (int i=0; i<fNScanPoints; i++){
-      fVHFoldedPeriod[i].SetBins(fNBinsPerPeriod,0,fNBinsPerPeriod);
+      fVHFoldedPeriod[i].SetBins(floor(fNBinsPerPeriod),0,0.001*fTau*(floor(fNBinsPerPeriod)));
       if (fDoFFT) fVHFFTSumRuns[i].SetBins(fNBins,0,fNBins);
       
       /*
@@ -248,6 +258,7 @@ int PFAnalysis::AddRun(std::string runID,
   TFile scanOutFile(fnameScanOut.c_str());
   for (int i=0; i<fNScanPoints; i++){
     float maxSNR=ProcessCompSig(i, runID, &scanOutFile, &hMaxSNRperPeriod);
+    //    std::cout<<"maxSNR: "<<maxSNR<<std::endl;
     fVHMaxSNRPerRun[fNumberOfRuns-1].Fill(i,maxSNR);
 
     if (fDoFFT) {
@@ -281,6 +292,7 @@ float PFAnalysis::ProcessCompSig(int iStep,
   char tmp[100];
   sprintf(tmp, "DMCompHist/fHCompSig_%d", iStep);
   TH1F* hStepCompSig=(TH1F*)scanOutFile->Get(tmp);
+
   hStepCompSig->TH1F::Sumw2(kFALSE);
 
   //run FindPeaks
@@ -293,7 +305,8 @@ float PFAnalysis::ProcessCompSig(int iStep,
     std::string directory=runID+"/foldedPeriod";
     fOutputFile->cd(directory.c_str());
     
-    TH1F foldedHist("foldedHist","foldedHist",fNBinsPerPeriod, 0, fNBinsPerPeriod); 
+    TH1F foldedHist("foldedHist","foldedHist",floor(fNBinsPerPeriod), 0, 0.001*fTau*(floor(fNBinsPerPeriod)));
+    //    std::cout<<floor(fNBinsPerPeriod)<<"  "<<fTau<<"  "<<fTau*floor(fNBinsPerPeriod)<<std::endl;
     foldedHist.TH1F::Sumw2(kFALSE);
     FoldPeriods(hStepCompSig,&foldedHist);
     fVHFoldedPeriod[iStep].Add(&foldedHist);
@@ -311,11 +324,17 @@ float PFAnalysis::ProcessCompSig(int iStep,
   //fill fHMaxSNRperPeriod, find maximum per run
   float maxPerRun=0;
   for (int i=0; i<vMaxSNRperPeriod.size(); i++){
+    //    std::cout<<"max per period "<<i<<" "<<vMaxSNRperPeriod[i]<<std::endl;
     hMaxSNRperPeriod->Fill(iStep, i, vMaxSNRperPeriod[i]);
     if (vMaxSNRperPeriod[i]>maxPerRun) maxPerRun=vMaxSNRperPeriod[i];
   }
 
+  //  std::cout<<"before lee corr: "<<maxPerRun<<std::endl;
+  
   maxPerRun=CorrectForLEE(maxPerRun,fNPeriods);
+
+  //  std::cout<<"after lee corr: "<<maxPerRun<<std::endl;
+  
   returnValue=maxPerRun;
 
   //resize
@@ -340,7 +359,7 @@ int PFAnalysis::ProcessFFT(int iStep,
   TH1F* hStepCompSigFFT=(TH1F*)scanOutFile->Get(tmp);
 
   if (hStepCompSigFFT->GetNbinsX()==fNBins) fVHFFTSumRuns[iStep].Add(hStepCompSigFFT,1);
-  else std::cout<<"merge fImage:  skipping wrong binning  "<<"  "<<fRunID[fRunID.size()-1]<<"    Nbins: "<<hStepCompSigFFT->GetNbinsX()<<"     NbinsOrig: "<<hStepCompSigFFT->GetNbinsX()<<std::endl;
+  else std::cout<<"merge fImage:  skipping wrong binning  "<<"  "<<fRunID[fRunID.size()-1]<<"    Nbins: "<<hStepCompSigFFT->GetNbinsX()<<"     NbinsOrig: "<<fNBins<<std::endl;
 
   TH1F hFreq("hFreq","hFreq",1,0,1);
   TH1F hPeriod("hPeriod","hPeriod",1,0,1);
@@ -518,13 +537,19 @@ std::vector<float> PFAnalysis::FindPeaks(TH1F* hCompSig)
   //find background
   std::vector<TH1F> hBckgPerPeriod;
   char tmp[100];
-  for (int i=0; i<fNBins; i++){
+  int iPerBuf=0;
+  hBckgPerPeriod.push_back(TH1F(tmp,tmp,300,400,700));
+  for (int i=0; i<hCompSig->GetNbinsX(); i++){
     sprintf(tmp,"hBckgPer_%d",i);
-    int iPer=floor(i/fNBinsPerPeriod);
-    if (i%fNBinsPerPeriod==0) hBckgPerPeriod.push_back(TH1F(tmp,tmp,300,400,700));
-    hBckgPerPeriod[iPer].Fill(hCompSig->GetBinContent(i),1);
+    int iPer=floor((float)i/(float)fNBinsPerPeriod);
+    if (iPer!=iPerBuf){
+      hBckgPerPeriod.push_back(TH1F(tmp,tmp,300,400,700));
+      iPerBuf=iPer;
+    }
+    //    std::cout<<iPer<<"    "<<i<<"   "<<hCompSig->GetBinContent(i+1)<<std::endl;
+    hBckgPerPeriod[iPer].Fill(hCompSig->GetBinContent(i+1),1);
   }
-  
+
   //background is gauss with a good precision
   //fit core to determine PDF
   TF1 ff("ff","gaus");
@@ -532,16 +557,20 @@ std::vector<float> PFAnalysis::FindPeaks(TH1F* hCompSig)
   float rms[fNPeriods];
   float fitMean[fNPeriods];
   float fitSigma[fNPeriods];
+  float fitChiNDOF[fNPeriods];
   
-  //
+  //  std::cout<<"yopop"<<std::endl;
   for (int p=0; p<fNPeriods; p++){
     fitMean[p]=-1;
     fitSigma[p]=-1;
-    
-    //check if there are many hits not falling into 400-700 range
+    //    std::cout<<"blabla   "<<p<<"  "<<fNPeriods<<"  "<<hBckgPerPeriod.size()<<std::endl;
+    //check if there are many hits not falling into 400-700 amplitude range
     int nMiss=hBckgPerPeriod[p].GetBinContent(0)+
       hBckgPerPeriod[p].GetBinContent(hBckgPerPeriod[p].GetNbinsX()+1);
-    if (nMiss>=fNBinsPerPeriod-10||hBckgPerPeriod[p].GetEntries()==0) continue;
+    if (nMiss>=fNBinsPerPeriod-10||hBckgPerPeriod[p].GetEntries()==0){
+      //      std::cout<<"misisisisi"<<std::endl;
+      continue;
+    }
     
     mean[p]=hBckgPerPeriod[p].GetMean();
     rms[p]=hBckgPerPeriod[p].GetRMS();
@@ -549,34 +578,45 @@ std::vector<float> PFAnalysis::FindPeaks(TH1F* hCompSig)
     ff.SetParameter(0,hBckgPerPeriod[p].GetEntries());
     ff.SetParameter(1,mean[p]);
     ff.SetParameter(2,rms[p]);
+
+    //   std::cout<<"heere   "<<p<<"  "<<hBckgPerPeriod.size()<<std::endl;
     
     hBckgPerPeriod[p].Fit(&ff,"QN","",mean[p]-2*rms[p],mean[p]+2*rms[p]);
     
     fitMean[p]=ff.GetParameter(1);
     fitSigma[p]=ff.GetParameter(2);
-    
+        
     float chi2=ff.GetChisquare();
     int ndof=ff.GetNDF();
+
+    fitChiNDOF[p]=(float)chi2/(float)ndof;
     
     //safety agains failed fit
     
-    if (chi2/ndof>5||fabs((fitMean[p]-mean[p])/rms[p])>2) {
+    if ((float)chi2/(float)ndof>5||fabs((fitMean[p]-mean[p])/rms[p])>2||hBckgPerPeriod[p].GetEntries()<50) {
       fitMean[p]=mean[p];
       fitSigma[p]=rms[p];
     }
   }
   
   //fill hIndPulses histograms
-  float SNRmax=1;
+  float SNRmax=-1;
   float SNRmin=1000;
-  int iPerBuf=0;
-  for (int i=1; i<=hCompSig->GetNbinsX(); i++){
-    int iPer=floor(i/fNBinsPerPeriod);
-    
+  iPerBuf=0;
+  for (int i=0; i<hCompSig->GetNbinsX(); i++){
+    int iPer=floor((float)i/(float)fNBinsPerPeriod);
+    float binco;
+    int bID;
     if (iPer!=iPerBuf&&fitSigma[iPerBuf]!=0){
+      //      std::cout<<" bibi:    "<<iPer<<"  "<<iPerBuf<<"   "<<i<<"  "<<bID<<"  "<<binco<<"   "<<fitMean[iPerBuf]<<"  "<<mean[iPerBuf]<<"   "<<fitSigma[iPerBuf]<<"   "<<rms[iPerBuf]<<"   "<<fitChiNDOF[iPerBuf]<<std::endl;
       iPerBuf=iPer;
+
+      //if (SNRmax<0) std::cout<<" bibi:    "<<binco<<"   "<<fitMean[iPerBuf]<<std::endl;
+      //<<"  "<<<<std::endl;
+      //std::cout<<"before corr: "<<fNBinsPerPeriod<<"  "<<SNRmax<<std::endl;
+      SNRmax=CorrectForLEE(SNRmax,floor(fNBinsPerPeriod));
+      //std::cout<<"after corr: "<<SNRmax<<std::endl;
       
-      SNRmax=CorrectForLEE(SNRmax,fNBinsPerPeriod);
       
       vectorToReturn.push_back(SNRmax);
       
@@ -584,13 +624,17 @@ std::vector<float> PFAnalysis::FindPeaks(TH1F* hCompSig)
       SNRmin=1000;
     }
     //calculate SNR
-    float bico=hCompSig->GetBinContent(i);
+    float bico=hCompSig->GetBinContent(i+1);
     if (bico<=0) bico=fitMean[iPer];
-    if ((bico-fitMean[iPer])/fitSigma[iPer]>SNRmax) SNRmax=(bico-fitMean[iPer])/fitSigma[iPer];
+    if ((bico-fitMean[iPer])/fitSigma[iPer]>SNRmax) {
+      SNRmax=(bico-fitMean[iPer])/fitSigma[iPer];
+      binco=bico;
+      bID=i;
+    }
     if ((bico-fitMean[iPer])/fitSigma[iPer]<SNRmin) SNRmin=(bico-fitMean[iPer])/fitSigma[iPer];
     //if (fabs(SBmaxPerRun)>100000) std::cout<<"mamin: "<<_runID[ifi]<<"  "<<i<<"  "<<iPer<<"   content: "<<bico<<"  fmean: "<<fitMean[iPer]<<"  fsigma: "<<fitSigma[iPer]<<"  "<<SBmax<<"   "<<SBmin<<std::endl;
   }
-  
+  //  std::cout<<"rerere"<<std::endl;
   return vectorToReturn;
 
 }
@@ -605,11 +649,14 @@ int PFAnalysis::FoldPeriods(TH1F* histIn,
   if (histIn->IsZombie()||histOut->IsZombie()) return 1;
 
   for (int i=0; i<histIn->GetNbinsX(); i++){
-    int index=i%fNBinsPerPeriod;
-    histOut->Fill(index,histIn->GetBinContent(i+1));
+    int iPeriod=floor((float)(i)/(float)fNBinsPerPeriod);
+    float cbin=histIn->GetBinCenter(i+1);
+    //    std::cout<<i<<"  "<<iPeriod<<"  "<<fNBinsPerPeriod<<"  "<<cbin<<"  "<<fTau*0.001*fTau*fNBinsPerPeriod*iPeriod<<"  "<<cbin-fTau*0.001*fNBinsPerPeriod*iPeriod<<"  "<<histIn->GetBinContent(i+1)<<std::endl;
+    histOut->Fill(cbin-fTau*0.001*fNBinsPerPeriod*iPeriod,histIn->GetBinContent(i+1));
   }
   histOut->Scale(pow(fNPeriods,-1));
 
   return 0;
 }
+
 

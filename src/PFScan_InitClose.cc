@@ -1,7 +1,7 @@
 #include "PFScan.h"
 #include "TF1.h"
 
-PFScan::PFScan(int nScanPoints, float DM0, float scanStep)
+PFScan::PFScan(int nScanPoints, float DM0, float scanStep, int rebinFactor)
 {
   fNScanPoints=nScanPoints;
   fDM0=DM0;
@@ -12,6 +12,8 @@ PFScan::PFScan(int nScanPoints, float DM0, float scanStep)
   fDoScan=false;
   fDoFFT=false;
   fSaveResults=false;
+  fRebinFactor=rebinFactor;
+  fIsRebin=false;
   
   //  fSigArray=NULL;
   
@@ -38,6 +40,7 @@ int PFScan::SaveOutput(std::string rootfile)
     fScanOutFile->mkdir("DMCompHist");
     fScanOutFile->cd("DMCompHist");
     for (int j=0; j<fNScanPoints; j++){
+      fHCompSig[j]->GetXaxis()->SetTitle("seconds");
       fHCompSig[j]->Write();
       if (fDoFFT) fHCompSig_FFTImage[j]->Write();
     }
@@ -72,14 +75,19 @@ int PFScan::InitScan(std::string rootfile, bool doFFT)
 int PFScan::ReadRun(std::string rootfile)
 {
   fReadRun=true;
+  fIsRebin=false;
   ReadRunHeader(rootfile);
   ReadRAWSignal();
+
+
+  //do rebin
   
   //read file contents into the memory:
-  //input array must be of sie of input histograms
+  //input array must be of size of input histograms
   size_t size_input=(fNBinsInput*fNFreq)*sizeof(float);
   fSigArray=(float*)malloc(size_input);
   for (int i = 0; i < fNFreq; ++i){
+    //    fHPerBandSignal[i]->Rebin(fRebinFactor);
     for (int j = 0; j < fNBinsInput; ++j){
       fSigArray[i*fNBinsInput+j] = fHPerBandSignal[i]->GetBinContent(j+1);
     }
@@ -93,7 +101,7 @@ int PFScan::ReadRun(std::string rootfile)
   char tmp[100];
   for (int i = 0; i<fNScanPoints; i++){
     sprintf(tmp,"fHCompSig_%d",i);
-    fHCompSig.push_back(new TH1F(tmp,tmp,fNBins,0,fNBins));
+    fHCompSig.push_back(new TH1F(tmp,tmp,fNBins,0,fNBins*0.001*fTau));
   }
 
   if (fDoFFT){
@@ -118,4 +126,54 @@ int PFScan::CloseScan()
   
   //  fHCompSig.clear();
   return 0;
+}
+
+int PFScan::Rebin(int rebinFactor)
+{
+  fRebinFactor=rebinFactor;
+  
+  RecalculateNumbers(rebinFactor);
+
+  std::vector<float> fMeans;
+  //  fMeans.clear();
+  for (int i=0; i<fNFreq; i++){
+    int nBinsNew=floor((float)fHPerBandSignal[i]->GetNbinsX()/(float)rebinFactor)*rebinFactor;
+    TH1F* hbuf=(TH1F*)fHPerBandSignal[i]->Clone();
+    //    fHPerBandSignal[i]->Clone(&hbuf);
+    fHPerBandSignal[i]->SetBins(nBinsNew,0,nBinsNew);
+    for (int j=0; j<nBinsNew; j++)
+      fHPerBandSignal[i]->SetBinContent(i+1,hbuf->GetBinContent(j+1));
+    hbuf->Delete();
+    fHPerBandSignal[i]->Rebin(rebinFactor);
+    fMeans.push_back(0);
+    for (int j=0; j<fNBinsInput; j++){
+      fMeans[i]+=fHPerBandSignal[i]->GetBinContent(j+1);
+    }
+    fMeans[i]=fMeans[i]/fNBins;
+    if (fMeans[i]!=0) fHPerBandSignal[i]->Scale(pow(fMeans[i],-1));
+  }
+  
+  for (int i = 0; i<fNScanPoints; i++){
+    fHCompSig[i]->SetBins(fNBins,0,fNBins*0.001*fTau);
+    fHCompSig_FFTImage[i]->SetBins(fNBins,0,fNBins);
+  }
+
+  
+  //read file contents into the memory:
+  //input array must be of size of input histograms
+  size_t size_input=(fNBinsInput*fNFreq)*sizeof(float);
+  void* r1=std::realloc(fSigArray,size_input);
+  for (int i = 0; i < fNFreq; ++i){
+    //    fHPerBandSignal[i]->Rebin(fRebinFactor);
+    for (int j = 0; j < fNBinsInput; ++j){
+      fSigArray[i*fNBinsInput+j] = fHPerBandSignal[i]->GetBinContent(j+1);
+    }
+  }
+  //allocate compensated signal array:
+  //it can be of length several periods less
+  size_t size_output=(fNBins)*sizeof(float);
+  void* r2= std::realloc(fCompSigArray, size_output);
+  for (int i = 0; i<fNBins; i++) fCompSigArray[i]=0;
+  
+  return 1;
 }
