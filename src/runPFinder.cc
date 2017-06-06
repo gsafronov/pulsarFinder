@@ -168,14 +168,15 @@ int main(int argc, char *argv[])
     // runID.push_back(rID);
     std::string fnameRAW=dirWithData+"/readRAW_"+runID[i]+".root";
     std::string fnameScanOut=scanOutputLocation+"/scanOut_"+runID[i]+".root";
-    
+
+    std::cout<<"######################## NEXT RUN ###############################"<<std::endl;
     std::cout<<"Initalize run #"<<i+1<<"   "<<runID[i]<<";  "<<fnameRAW<<std::endl;
     //    std::cout<<"timer: "<<stwch.CpuTime()<<"   "<<stwch.RealTime()<<std::endl;
     if (doDMScan){
       scan.InitScan(fnameRAW, doFFT);
-      if (removeSpikes) scan.RemoveSpikes(5, 50);
       if (cleanFreq) scan.FillFrequencyMask(2);
-
+      if (removeSpikes) scan.RemoveSpikes(5, 50);
+      
       if (useGPU) scan.DoScan_GPU(nGPUThreadsPerBlock);
       else scan.DoScan_CPU(nCPUThreads);
       

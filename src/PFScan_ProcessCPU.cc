@@ -24,7 +24,8 @@ void* DoCompensation_CPU_interface(void *threadarg)
 
 int PFScan::FillFrequencyMask(float sigmaCut)
 {
-    //remove bad frequencies
+  std::cout<<"PFScan::FillFrequencyMask"<<std::endl;
+  //remove bad frequencies
   //introduce frequency mask
   int freqMask[512]={1};
   TH1F hOverallMean("hOverallMean","hOverallMean",1000,1e6,1e9);
@@ -85,7 +86,7 @@ int PFScan::FillFrequencyMask(float sigmaCut)
 int PFScan::RemoveSpikes(float sigmaCut, 
 			float cutBadRun)
 {
-  std::cout<<"PFScan::CleanSignal"<<std::endl;
+  std::cout<<"PFScan::RemoveSpikes"<<std::endl;
 
   fCleanSignal=true;
   
