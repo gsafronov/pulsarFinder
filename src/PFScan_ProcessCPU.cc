@@ -22,26 +22,86 @@ void* DoCompensation_CPU_interface(void *threadarg)
 }
 //////////////////////////////////////////
 
-int PFScan::CleanSignal(float sigmaCut, 
+int PFScan::FillFrequencyMask(float sigmaCut)
+{
+    //remove bad frequencies
+  //introduce frequency mask
+  int freqMask[512]={1};
+  TH1F hOverallMean("hOverallMean","hOverallMean",1000,1e6,1e9);
+  for (int y=0; y<fHFrequencyResponse->GetNbinsX(); y++){
+    //hOverallMean.Fill(fHFrequencyResponse->GetBinContent(y+1),1);
+    fHFRprofile->Fill(fHFrequencyResponse->GetBinContent(y+1),1);
+  }
+  
+  
+  //get median of fHRprofile
+  int sum=0;
+  int total=fHFRprofile->GetEntries();
+  float median=0;
+  for (int i=0; i<fHFRprofile->GetNbinsX(); i++){
+    sum+=fHFRprofile->GetBinContent(i+1);
+    //    std::cout<<sum<<"   "<<total<<"   "<<(float)sum/(float)total<<std::endl;
+    if ((float)sum/(float)total>=0.5) {
+      median=fHFRprofile->GetBinCenter(i+1);
+      break;
+    }
+  }
+  
+  std::cout<<"frequency response median: "<<median<<std::endl;
+  std::cout<<"frequency response mean:   "<<fHFRprofile->GetMean()<<std::endl;
+  std::cout<<"frequency response rms:    "<<fHFRprofile->GetRMS()<<std::endl;
+
+  //preliminary mask - cut high and low frequencies
+  for (int y=0; y<fNFreq; y++){
+    float freqResp=fHFrequencyResponse->GetBinContent(y+1);
+    if (freqResp<fHFRprofile->GetMean()-fHFRprofile->GetRMS()) fFreqMask[y]=0;
+    else {
+      fFreqMask[y]=1;
+      hOverallMean.Fill(fHFrequencyResponse->GetBinContent(y+1),1);
+      fHMaskedFreqResp->SetBinContent(y+1,fHFrequencyResponse->GetBinContent(y+1));
+      fHMaskedFreqResp->SetBinError(y+1,fHFrequencyResponse->GetBinError(y+1));
+    }
+  }
+
+  //defene new mean and rms and filter the outliers
+  std::cout<<"prelim. mask frequency response mean:   "<<hOverallMean.GetMean()<<std::endl;
+  std::cout<<"prelim. mask frequency response rms:    "<<hOverallMean.GetRMS()<<std::endl;
+
+  //it should be configurable: cut at +-2*rms from mean
+  fHMaskedFreqResp->Reset();
+  for (int y=0; y<fNFreq; y++){
+    if (fFreqMask[y]==0) continue;
+    if (fHFrequencyResponse->GetBinContent(y+1)>hOverallMean.GetMean()+sigmaCut*hOverallMean.GetRMS()||
+	fHFrequencyResponse->GetBinContent(y+1)<hOverallMean.GetMean()-sigmaCut*hOverallMean.GetRMS())
+      freqMask[y]=0;
+    else {
+      fHMaskedFreqResp->SetBinContent(y+1,fHFrequencyResponse->GetBinContent(y+1));
+      fHMaskedFreqResp->SetBinError(y+1,fHFrequencyResponse->GetBinError(y+1));
+    }
+  }
+  return 1;
+}
+
+int PFScan::RemoveSpikes(float sigmaCut, 
 			float cutBadRun)
 {
   std::cout<<"PFScan::CleanSignal"<<std::endl;
 
   fCleanSignal=true;
   
-  TH1F sumSigRef("sumSigRef","sumSigRef",fNBinsInput,0,fNBinsInput);
+  TH1F sumSigRef("sumSigRef","sumSigRef",fHPerBandSignal[0]->GetNbinsX(),0,fHPerBandSignal[0]->GetXaxis()->GetXmax());
+
   TH1F backgRef("backgRef","backgRef",5010,-10,5000);
   TH1F backgPerPeriod("backgPerPeriod","backgPerPeriod",1000,0,1000);
 
-  for (int y=0; y<fNFreq; y++) sumSigRef.Add(fHPerBandSignal[y],1);
-      
+  for (int y=0; y<fNFreq; y++){
+    if (fFreqMask[y]==0) continue; 
+    sumSigRef.Add(fHPerBandSignal[y],1);
+  }
+    
   for (int y=0; y<fNBins; y++){
     if (sumSigRef.GetBinContent(y+1)>0) backgRef.Fill(sumSigRef.GetBinContent(y+1),1);
-//      if (sumSigRef.GetBinContent(y+1)==0) std::cout<<"ZeroBin"<<std::endl;
   }
-
-  //  double refMean=backgRef.GetMean();
-  //  double refRMS=backgRef.GetRMS();
 
   TF1 gfit("gfit","gaus");
   backgRef.Fit(&gfit,"QN","",450,650);
@@ -53,8 +113,8 @@ int PFScan::CleanSignal(float sigmaCut,
   TH1F backgAvg("backgAvg","backgAvg",1000,0,1000);
   
   for (int i=0; i<fNPeriodsInput; i++){
-    for (int j=0; j<fNBinsPerPeriod; j++){
-      backgPerPeriod.Fill(sumSigRef.GetBinContent(i*fNBinsPerPeriod+j),1);
+    for (int j=0; j<floor(fNBinsPerPeriod); j++){
+      backgPerPeriod.Fill(sumSigRef.GetBinContent(floor(i*fNBinsPerPeriod)+j),1);
     }
     backgAvg.Fill(backgPerPeriod.GetMean(),1);
     //      std::cout<<"period: "<<i<<"   bin: "<<i*fNBinsPerPeriod<<"    average: "<<backgPerPeriod.GetMean()<<std::endl;
@@ -83,7 +143,7 @@ int PFScan::CleanSignal(float sigmaCut,
       }
     }
   }
-
+  //  std::cout<<"finish"<<std::endl;
   return 0;
 }
 
@@ -98,12 +158,13 @@ int PFScan::DoCompensation_CPU(int iThread,
   int endPeriod=(iThread+1)*floor((fNPeriods+10)/(fNThreads));
   if (iThread==fNThreads-1) endPeriod=fNPeriods;
   //  std::cout<<fTau<<"  "<<fPeriod<<" "<<fNPeriods<<" "<<fNThreads<<"   start: "<<startPeriod<<"  "<<endPeriod<<std::endl;
-  for (int i=startPeriod*fNBinsPerPeriod+1; i<endPeriod*fNBinsPerPeriod+1; i++){
+  for (int i=floor(startPeriod*fNBinsPerPeriod)+1; i<floor(endPeriod*fNBinsPerPeriod)+1; i++){
       //(i<=fNBinsPerPeriod)||i>fNBins-fNBinsPerPeriod) continue;
 
   //for (int i=1; i<fNBins+1; i++){
     float bico=0;
     for (int y=0; y<fNFreq; y++) {
+      if (fFreqMask[y]==0) continue;
       //take sigTimeProfile[511-y] as 511-th is shorter wavelength
       //calculate delay wrt 511th for particular freq[511-y]
       float dT=4.6*(-fL511*fL511+pow(fL511+y*fDL,2))*dm*0.001; //covert to ms
@@ -135,6 +196,12 @@ int PFScan::DoScan_CPU(int nThreads)
 {
   std::cout<<"PFScan::DoScan_CPU"<<std::endl;
   fNThreads=nThreads;
+
+  //do rebin here
+  if (!fIsRebin) {
+    Rebin(fRebinFactor);
+    fIsRebin=true;
+  }
   
   void *status;
   pthread_t threads[fNThreads];
@@ -167,7 +234,7 @@ int PFScan::DoScan_CPU(int nThreads)
     }
 
     for (int k=0; k<fNBins; k++) {
-      fHCompSig[i]->Fill(k,fCompSigArray[k]);
+      fHCompSig[i]->SetBinContent(k+1,fCompSigArray[k]);
       fHCompSig[i]->SetBinError(k+1,0);
     }
 

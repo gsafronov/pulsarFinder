@@ -73,7 +73,8 @@ class PFAnalysis : PFRun
   std::string fCurrentRunID;
 
   int fNumberOfRuns;
-
+  int fRebinFactor;
+  
   //add various status flags for safe execution
 
   //FFT results

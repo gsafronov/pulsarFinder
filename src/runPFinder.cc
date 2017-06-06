@@ -54,6 +54,9 @@ int main(int argc, char *argv[])
   int nPointsToScan=1;
   float DM0=0;
   float scanStep=1;
+  int rebinFactor=1;
+  bool removeSpikes=true;
+  bool cleanFreq=true;
 
   bool doDMScan=false;
   bool doFFT=false;
@@ -61,6 +64,8 @@ int main(int argc, char *argv[])
   bool saveScanOutput=false;
 
   //string inputs
+  std::string sRemoveSpikes="yes";
+  std::string sCleanFreq="yes";
   std::string sUseGPU="no";
   std::string sDoDMScan="no";
   std::string sDoFFT="no";
@@ -101,6 +106,9 @@ int main(int argc, char *argv[])
       else if (confParam=="anOutputFileName") flist>>anOutputFileName;
       else if (confParam=="DM0") flist>>DM0;
       else if (confParam=="scanStep") flist>>scanStep;
+      else if (confParam=="rebinFactor") flist>>rebinFactor;
+      else if (confParam=="removeSpikes") flist>>sRemoveSpikes;
+      else if (confParam=="cleanFrequencies") flist>>sCleanFreq;
       //      else if (confParam=="scanOutputFile") flist>>scanOutputFname;
       //else if (confParam=="rebinFactor") flist>>rebinFactor;
       //else if (confParam=="fitWindow") flist>>fitWindow;
@@ -128,6 +136,7 @@ int main(int argc, char *argv[])
   err+=convertStringParam(sDoFFT, &doFFT);
   err+=convertStringParam(sSaveScanOutput, &saveScanOutput);
   err+=convertStringParam(sDoAnalysis, &doAnalysis);
+  err+=convertStringParam(sRemoveSpikes, &removeSpikes);
 
   if (err>0) {
     std::cout<<"misprint in yes/no parameters"<<std::endl;
@@ -147,15 +156,12 @@ int main(int argc, char *argv[])
     runID.push_back(rID);
   }
 
-  std::cout<<"create PFScan"<<std::endl;
-  PFScan scan(nPointsToScan, DM0, scanStep);
+  std::cout<<"create PFScan"<<"    rebin: "<<rebinFactor<<std::endl;
+  PFScan scan(nPointsToScan, DM0, scanStep, rebinFactor);
   std::cout<<"create PFAnalysis"<<std::endl;
   PFAnalysis analysis(anOutputFileName, &scan, doFFT);
-  
-  //  if (doAnalysis) analysis.InitAnalysis(runID, nPointsToScan);
-  
+
   for (int i=0; i<runID.size(); i++){
-    //    r++;
     flist.getline(tmp,100,'\n');
     // if (r<startFileNumber) continue;
     // if (r>=startFileNumber+nFiles) break;
@@ -167,8 +173,9 @@ int main(int argc, char *argv[])
     //    std::cout<<"timer: "<<stwch.CpuTime()<<"   "<<stwch.RealTime()<<std::endl;
     if (doDMScan){
       scan.InitScan(fnameRAW, doFFT);
-      scan.CleanSignal(5, 50);
-      
+      if (removeSpikes) scan.RemoveSpikes(5, 50);
+      if (cleanFreq) scan.FillFrequencyMask(2);
+
       if (useGPU) scan.DoScan_GPU(nGPUThreadsPerBlock);
       else scan.DoScan_CPU(nCPUThreads);
       
@@ -180,7 +187,6 @@ int main(int argc, char *argv[])
     }
     if (doAnalysis){
       analysis.AddRun(runID[i], fnameRAW, fnameScanOut);
-      //      if (doFFT) analysis.ProcessFFT();
     }
     
   }
@@ -188,8 +194,6 @@ int main(int argc, char *argv[])
     analysis.SumRuns();
   }
   std::cout<<"done"<<std::endl;
-//  if (doAnalysis) analysis.SaveOutput();
-
 }
 
 

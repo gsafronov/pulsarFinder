@@ -8,10 +8,10 @@
 //see comments on actions in DMScan::sumFrequencies() function
 //treat array as 1dim: in thread i sum_j(511-j+i), fullID - ID on a given freq band
 __global__ void sumFreq_kernel(float *sigArray, 
-			       float *sigSum, 
+			       float *sigSum,
+			       int *freqMask,
 			       int nFreq, 
 			       int nBinsInput, 
-			       int nBinsPerPeriod, 
 			       float DM, 
 			       float l511, 
 			       float dL, 
@@ -22,6 +22,7 @@ __global__ void sumFreq_kernel(float *sigArray,
   float bico=0;
   int fullID=i;
   for (int iFreq=0; iFreq<nFreq; iFreq++){
+    if (freqMask[iFreq]==0) continue;
     float dT=4.6*(-l511*l511+(l511+iFreq*dL)*(l511+iFreq*dL))*DM*0.001;
     float dTnearest=dT-period*floor(dT/period);
     float delta=dTnearest/tau;
@@ -39,6 +40,12 @@ __global__ void sumFreq_kernel(float *sigArray,
 
 int PFScan::DoScan_GPU(int nThreadsPerBlock)
 {
+  //rebin here
+  if (!fIsRebin) {
+    Rebin(fRebinFactor);
+    fIsRebin=true;
+  }
+  //  std::cout<<"inside DoScan_GPU"<<std::endl;
   // Error code to check return values for CUDA calls
   cudaError_t err = cudaSuccess;
   
@@ -82,6 +89,7 @@ int PFScan::DoScan_GPU(int nThreadsPerBlock)
 
 int PFScan::DoCompensation_GPU(int iStep, int nThreadsPerBlock)
 {
+  //  std::cout<<"inside DoCompensation_GPU"<<std::endl;
   TStopwatch stwch;
   float DM=fDM0+fScanStep*iStep;
   
@@ -107,15 +115,14 @@ int PFScan::DoCompensation_GPU(int iStep, int nThreadsPerBlock)
   //  printf("CUDA kernel launch with %d blocks of %d threads\n", blocksPerGrid, threadsPerBlock);
   //  std::cout<<"parameters: "<<fNFreq<<"  "<<fNBins<<"  "<<DM<<"  "<<fL511<<"  "<<fDL<<"  "<<fTau<<"  "<<fPeriod<<"   blocksPerGrid "<<nBlocksPerGrid<<std::endl;
   sumFreq_kernel<<<nBlocksPerGrid, nThreadsPerBlock>>>
-    (fDev_SigArray, d_sigSum, fNFreq, fNBinsInput, 
-     fNBinsPerPeriod, DM, fL511, fDL, fTau, fPeriod);
+    (fDev_SigArray, d_sigSum, fFreqMask, fNFreq, fNBinsInput, 
+     DM, fL511, fDL, fTau, fPeriod);
   err = cudaGetLastError();
   
   if (err != cudaSuccess){
     fprintf(stderr, "Failed to launch sumFreq kernel (error code %s)!\n", cudaGetErrorString(err));
     exit(EXIT_FAILURE);
   }
-  
   // Copy the device result vector in device memory to the host result vector in host memory.
   //  printf("Copy output data from the CUDA device to the host memory:");
   //  std::cout<<"address: "<<sigSum<<"  "<<sigSum[0]<<"  "<<d_sigSum<<"  "<<size_output<<"  "<<cudaMemcpyDeviceToHost<<std::endl;

@@ -13,7 +13,7 @@
 class PFScan : PFRun
 {
  public:
-  PFScan(int nScanPoints, float DM0, float nScanStep);
+  PFScan(int nScanPoints, float DM0, float nScanStep, int rebinFactor);
   // ~PFScan();
 
   int DoScan_CPU(int nThreads);
@@ -23,11 +23,13 @@ class PFScan : PFRun
 
   int DoCompensation_CPU(int iThread, int iStep);
   
-  int CleanSignal(float cutSpike, float cutBadRun);
-
+  int RemoveSpikes(float cutSpike, float cutBadRun);
+  int FillFrequencyMask(float cutFreq);
+  
   float GetDM(int iStep) {return fDM0+iStep*fScanStep;};
   float GetNScanPoints() {return fNScanPoints;};
   float GetDM0() {return fDM0;};
+  int GetRebinFactor() {return fRebinFactor;}
 
   int InitScan(std::string, bool doFFT);
   int SaveOutput(std::string);
@@ -40,6 +42,8 @@ class PFScan : PFRun
   int DoRooFFT(int iStep);
 
   int ReadRun(std::string);
+
+  int Rebin(int rebinFactor);
   
  protected:
   //PFRun fRun;
@@ -56,6 +60,9 @@ class PFScan : PFRun
   bool fDoFFT;
   bool fSaveResults;
 
+  int fRebinFactor;
+  bool fIsRebin;
+  
   float* fSigArray;
   float* fDev_SigArray;
 
@@ -65,10 +72,14 @@ class PFScan : PFRun
   //  std::vector<TH1F*> fHCompSig_CPU;
   std::vector<TH1F*> fHCompSig_FFTImage;
 
+  int* fFreqMask;
+  
   TFile* fScanOutFile;
 
   TH1F* fHCompTiming;
   TH1F* fHFFTTiming;
+  TH1F* fHFRprofile;
+  TH1F* fHMaskedFreqResp;
 
 };
 
