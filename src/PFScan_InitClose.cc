@@ -48,7 +48,7 @@ int PFScan::SaveOutput(std::string rootfile)
 
     std::ofstream fftInfo;
     char tmp[100];
-    sprintf(tmp,"fftOutput_%s.dat",fFileName.c_str());
+    //    sprintf(tmp,"fftOutput_%s.dat",fFileName.c_str());
     fftInfo.open("fftOutput.dat");
     
     for (int j=0; j<fNScanPoints; j++){
