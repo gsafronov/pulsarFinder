@@ -1,5 +1,8 @@
 #include "PFScan.h"
 #include "TF1.h"
+#include <fstream>
+#include <iostream>
+#include <iomanip>
 
 PFScan::PFScan(int nScanPoints, float DM0, float scanStep, int rebinFactor)
 {
@@ -42,11 +45,29 @@ int PFScan::SaveOutput(std::string rootfile)
     fHMaskedFreqResp->Write();
     fScanOutFile->mkdir("DMCompHist");
     fScanOutFile->cd("DMCompHist");
+
+    std::ofstream fftInfo;
+    char tmp[100];
+    sprintf(tmp,"fftOutput_%s.dat",fFileName.c_str());
+    fftInfo.open("fftOutput.dat");
+    
     for (int j=0; j<fNScanPoints; j++){
       fHCompSig[j]->GetXaxis()->SetTitle("seconds");
       fHCompSig[j]->Write();
-      if (fDoFFT) fHCompSig_FFTImage[j]->Write();
+      if (fDoFFT) {
+	fftInfo<<"DM: "<<fDM0+j*fScanStep<<"\n";
+	fftInfo<<"period: "<<fPeriod<<"\n";
+	fftInfo<<"tau: "<<fTau<<"\n";
+	fftInfo<<"rebinFactor: "<<fRebinFactor<<"\n";
+	fftInfo<<"number of periods: "<<fNPeriods<<"\n"<<"\n";
+	fftInfo<<"fast fourier image [bin center (Hz)     power]:"<<"\n";
+	fHCompSig_FFTImage[j]->Write();
+	for (int ib=0; ib<fHCompSig_FFTImage[j]->GetNbinsX(); ib++){
+	  fftInfo<<std::setprecision(5)<<fHCompSig_FFTImage[j]->GetBinCenter(ib)<<"      "<<fHCompSig_FFTImage[j]->GetBinContent(ib)<<"\n";
+	}
+      }
     }
+    fftInfo.close();
     
   }
   fScanOutFile->Close();
